@@ -1,0 +1,65 @@
+:root {
+  --baum-navy: #0a1f44;
+  --baum-orange: #e8590c;
+}
+
+body {
+  background-color: #f5f7fa;
+}
+
+.navbar-baum {
+  background-color: var(--baum-navy);
+}
+
+.navbar-baum .navbar-brand,
+.navbar-baum .nav-link {
+  color: #ffffff !important;
+}
+
+.btn-primary {
+  background-color: var(--baum-navy);
+  border-color: var(--baum-navy);
+}
+
+.btn-primary:hover {
+  background-color: #133566;
+  border-color: #133566;
+}
+
+.auth-shell {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card {
+  background: #ffffff;
+  border-top: 4px solid var(--baum-orange);
+  border-radius: 8px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 4px 16px rgba(10, 31, 68, 0.08);
+}
+
+.auth-eyebrow {
+  color: var(--baum-orange);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.page-footer {
+  text-align: center;
+  padding: 1.5rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 2rem;
+}
+
+.badge.bg-warning {
+  color: #212529;
+}

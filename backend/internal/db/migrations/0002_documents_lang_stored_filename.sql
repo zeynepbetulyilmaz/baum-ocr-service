@@ -1,0 +1,2 @@
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS stored_filename TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS lang TEXT NOT NULL DEFAULT 'tur+eng';

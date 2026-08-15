@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-baum}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env dosyasında tanımlanmalı}
+      POSTGRES_DB: ${POSTGRES_DB:-baum_ocr}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-baum} -d ${POSTGRES_DB:-baum_ocr}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Not: host'a port açmıyoruz — pgAdmin ve backend zaten aynı Docker ağı
+    # içinden "postgres:5432" üzerinden erişiyor.
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD .env dosyasında tanımlanmalı}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "5051:80"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://${POSTGRES_USER:-baum}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-baum_ocr}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET .env dosyasında tanımlanmalı}
+      STORAGE_DIR: /data/storage
+      TESSERACT_LANG: tur+eng
+      MAX_UPLOAD_MB: 25
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3001}
+    volumes:
+      - storage:/data/storage
+    ports:
+      - "8082:8080"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3001:8080"
+      - "3443:8443"
+
+volumes:
+  pgdata:
+  storage:
+  pgadmin-data:
