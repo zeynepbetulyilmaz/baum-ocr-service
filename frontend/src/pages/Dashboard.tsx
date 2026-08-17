@@ -51,27 +51,26 @@ export default function Dashboard() {
     setPage(res.data.page || targetPage)
   }
 
-  useEffect(() => {
-    fetchDocs(1)
+    useEffect(() => {
+        fetchDocs(1).catch(() => {
+            // İlk yükleme başarısız olursa (ör. sayfa açılışında token zaten
+            // geçersizse) sessizce yut — axios interceptor yönlendirmeyi
+            // zaten yapacak.
+        })
 
-    // Sürekli (belge durumu ne olursa olsun) 4 saniyede bir sunucuyu
-    // yoklamak gereksiz — bir kere "Tamamlandı"/"Başarısız" olmuş
-    // belgeler için artık yeni bir şey öğrenemeyiz. Bu yüzden her tick'te
-    // önce aktif (sırada/işleniyor) belge var mı diye bakıyoruz; yoksa
-    // ağ isteği hiç atmıyoruz. Yeni bir yükleme yapılınca (handleUpload
-    // içinde fetchDocs(1) çağrılıyor) docsRef güncellenir ve polling
-    // otomatik olarak tekrar aktif hale gelir.
-    const interval = setInterval(() => {
-      const hasActive = docsRef.current.some((d) => ACTIVE_STATUSES.has(d.status))
-      if (hasActive) {
-        fetchDocs()
-      }
-    }, 4000)
+        const interval = setInterval(() => {
+            const hasActive = docsRef.current.some((d) => ACTIVE_STATUSES.has(d.status))
+            if (hasActive) {
+                // fetchDocs başarısız olursa (ör. token geçersiz kılınmış, 401)
+                // polling'i sonsuza kadar her 4 saniyede bir tekrar denemek yerine
+                // tamamen durduruyoruz.
+                fetchDocs().catch(() => clearInterval(interval))
+            }
+        }, 4000)
 
-    return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
+        return () => clearInterval(interval)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
   async function handleUpload(e: FormEvent) {
     e.preventDefault()
     setError('')

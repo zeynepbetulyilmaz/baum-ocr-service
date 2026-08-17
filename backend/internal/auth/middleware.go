@@ -6,42 +6,64 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
-// RequireAuth, Authorization header'ındaki JWT'yi doğrular VE token
-// içindeki token_version'ın veritabanındaki güncel değerle eşleştiğini
-// kontrol eder. Bu ikinci kontrol olmadan JWT'ler "revoke edilemez" olurdu
-// — süresi dolana kadar (72 saat) her zaman geçerli kalırlardı, çalınan bir
-// token'ı iptal etmenin hiçbir yolu olmazdı. Bunun bedeli, her istekte bir
-// ekstra (çok ucuz, indexli) DB sorgusu.
 func RequireAuth(secret string, database *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if header == "" || !strings.HasPrefix(header, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "eksik veya hatalı yetkilendirme başlığı"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "yetkilendirme basligi eksik"})
 			return
 		}
 
-		tokenStr := strings.TrimPrefix(header, "Bearer ")
-		claims, err := ParseToken(secret, tokenStr)
+		tokenString := strings.TrimPrefix(header, "Bearer ")
+
+		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		})
+		if err != nil || !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "gecersiz veya suresi dolmus oturum"})
+			return
+		}
+
+		claims, ok := token.Claims.(*Claims)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "gecersiz oturum"})
+			return
+		}
+
+		var currentTokenVersion int
+		var role string
+		var username string
+		err = database.QueryRow(
+			`SELECT token_version, role, username FROM users WHERE id = $1`,
+			claims.UserID,
+		).Scan(&currentTokenVersion, &role, &username)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "geçersiz veya süresi dolmuş token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "kullanici bulunamadi"})
 			return
 		}
 
-		var currentVersion int
-		if err := database.QueryRow(
-			`SELECT token_version FROM users WHERE id = $1`, claims.UserID,
-		).Scan(&currentVersion); err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "kullanıcı bulunamadı"})
-			return
-		}
-		if currentVersion != claims.TokenVersion {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "oturum geçersiz kılınmış, tekrar giriş yapın"})
+		if currentTokenVersion != claims.TokenVersion {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "oturum gecersiz kilindi, tekrar giris yapin"})
 			return
 		}
 
 		c.Set("user_id", claims.UserID)
+		c.Set("role", role)
+		c.Set("username", username)
+		c.Next()
+	}
+}
+
+// RequireAdmin, RequireAuth'tan SONRA kullanılmalı (role context'te olmalı).
+func RequireAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetString("role") != "admin" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "bu işlem için yönetici yetkisi gerekiyor"})
+			return
+		}
 		c.Next()
 	}
 }

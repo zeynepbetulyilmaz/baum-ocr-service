@@ -72,6 +72,7 @@ func TestRouter_ProtectedRoute_NoToken(t *testing.T) {
 func TestRouter_RegisterThenAccessProtectedRoute(t *testing.T) {
 	mock, srv := newTestRouter(t)
 
+	(*mock).ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	(*mock).ExpectExec("INSERT INTO users").WillReturnResult(sqlmock.NewResult(1, 1))
 
 	registerResp, err := http.Post(srv.URL+"/api/auth/register", "application/json",
@@ -96,8 +97,8 @@ func TestRouter_RegisterThenAccessProtectedRoute(t *testing.T) {
 
 	// Korumalı rotaya bu token ile erişim, RequireAuth middleware'inin
 	// token_version'ı DB'den kontrol edeceği anlamına gelir.
-	(*mock).ExpectQuery("SELECT token_version FROM users").
-		WillReturnRows(sqlmock.NewRows([]string{"token_version"}).AddRow(1))
+	(*mock).ExpectQuery("SELECT token_version, role, username FROM users").
+		WillReturnRows(sqlmock.NewRows([]string{"token_version", "role", "username"}).AddRow(1, "user", "zeynep"))
 	(*mock).ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 	(*mock).ExpectQuery("SELECT id, original_filename").
 		WillReturnRows(sqlmock.NewRows([]string{
@@ -114,5 +115,44 @@ func TestRouter_RegisterThenAccessProtectedRoute(t *testing.T) {
 
 	if docsResp.StatusCode != http.StatusOK {
 		t.Fatalf("beklenen 200, alınan %d", docsResp.StatusCode)
+	}
+}
+
+// TestRouter_AdminRoute_NonAdminForbidden, RequireAdmin middleware'inin
+// sadece frontend'de linki gizlemekle kalmayıp gerçekten backend'de de
+// yetkisiz erişimi engellediğini doğrular.
+func TestRouter_AdminRoute_NonAdminForbidden(t *testing.T) {
+	mock, srv := newTestRouter(t)
+
+	(*mock).ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	(*mock).ExpectExec("INSERT INTO users").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	registerResp, err := http.Post(srv.URL+"/api/auth/register", "application/json",
+		strings.NewReader(`{"username":"azra","email":"azra@baum.edu.tr","password":"sifre123"}`))
+	if err != nil {
+		t.Fatalf("register isteği başarısız: %v", err)
+	}
+	defer registerResp.Body.Close()
+
+	var registerBody struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(registerResp.Body).Decode(&registerBody); err != nil {
+		t.Fatalf("register yanıtı parse edilemedi: %v", err)
+	}
+
+	(*mock).ExpectQuery("SELECT token_version, role, username FROM users").
+		WillReturnRows(sqlmock.NewRows([]string{"token_version", "role", "username"}).AddRow(1, "user", "azra"))
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/admin/users", nil)
+	req.Header.Set("Authorization", "Bearer "+registerBody.Token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("admin isteği başarısız: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("normal kullanıcı için beklenen 403, alınan %d", resp.StatusCode)
 	}
 }

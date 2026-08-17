@@ -41,14 +41,17 @@ export default function JobDetail() {
   }, [id])
 
   async function download(kind: 'text' | 'pdf') {
-    const res = await client.get(`/documents/${id}/${kind}`, { responseType: 'blob' })
-    const url = window.URL.createObjectURL(new Blob([res.data]))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = kind === 'text' ? 'sonuc.txt' : 'sonuc.pdf'
-    a.click()
-    window.URL.revokeObjectURL(url)
-  }
+        const res = await client.get(`/documents/${id}/${kind}`, { responseType: 'blob' })
+        const url = window.URL.createObjectURL(new Blob([res.data]))
+        const a = document.createElement('a')
+        a.href = url
+
+        const baseName = (doc?.original_filename || 'belge').replace(/\.[^/.]+$/, '')
+        a.download = `${baseName}-sonuc.${kind === 'text' ? 'txt' : 'pdf'}`
+
+        a.click()
+        window.URL.revokeObjectURL(url)
+    }
 
   if (error) return <div className="alert alert-danger">{error}</div>
   if (!doc) return <p>Yükleniyor...</p>

@@ -44,8 +44,9 @@ func TestRegister_Success(t *testing.T) {
 	}
 	defer db.Close()
 
+	mock.ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	mock.ExpectExec("INSERT INTO users").
-		WithArgs(sqlmock.AnyArg(), "zeynep", "zeynep@baum.edu.tr", sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "zeynep", "zeynep@baum.edu.tr", sqlmock.AnyArg(), "user").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	r := setupAuthRouter(db)
@@ -61,6 +62,40 @@ func TestRegister_Success(t *testing.T) {
 	}
 }
 
+func TestRegister_FirstUserBecomesAdmin(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock oluşturulamadı: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	mock.ExpectExec("INSERT INTO users").
+		WithArgs(sqlmock.AnyArg(), "zeynep", "zeynep@baum.edu.tr", sqlmock.AnyArg(), "admin").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	r := setupAuthRouter(db)
+	w := doJSON(r, http.MethodPost, "/api/auth/register", map[string]string{
+		"username": "zeynep", "email": "zeynep@baum.edu.tr", "password": "sifre123",
+	})
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("beklenen 201, alınan %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		User struct {
+			Role string `json:"role"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("yanıt parse edilemedi: %v", err)
+	}
+	if resp.User.Role != "admin" {
+		t.Errorf("beklenen role 'admin', alınan '%s'", resp.User.Role)
+	}
+}
+
 func TestRegister_DuplicateConflict(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -68,6 +103,7 @@ func TestRegister_DuplicateConflict(t *testing.T) {
 	}
 	defer db.Close()
 
+	mock.ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	mock.ExpectExec("INSERT INTO users").
 		WillReturnError(fmt.Errorf("duplicate key value violates unique constraint"))
 
@@ -103,11 +139,15 @@ func TestLogin_WrongPassword(t *testing.T) {
 	defer db.Close()
 
 	hash, _ := auth.HashPassword("dogru-sifre")
-	rows := sqlmock.NewRows([]string{"id", "username", "password_hash", "token_version"}).
-		AddRow("user-1", "zeynep", hash, 1)
-	mock.ExpectQuery("SELECT id, username, password_hash, token_version FROM users").
+	rows := sqlmock.NewRows([]string{
+		"id", "username", "password_hash", "token_version", "role", "failed_login_attempts", "locked_until",
+	}).AddRow("user-1", "zeynep", hash, 1, "user", 0, nil)
+	mock.ExpectQuery("SELECT id, username, password_hash, token_version, role").
 		WithArgs("zeynep@baum.edu.tr").
 		WillReturnRows(rows)
+	mock.ExpectExec("UPDATE users SET failed_login_attempts").
+		WithArgs(1, "user-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := setupAuthRouter(db)
 	w := doJSON(r, http.MethodPost, "/api/auth/login", map[string]string{
@@ -127,11 +167,15 @@ func TestLogin_Success(t *testing.T) {
 	defer db.Close()
 
 	hash, _ := auth.HashPassword("dogru-sifre")
-	rows := sqlmock.NewRows([]string{"id", "username", "password_hash", "token_version"}).
-		AddRow("user-1", "zeynep", hash, 1)
-	mock.ExpectQuery("SELECT id, username, password_hash, token_version FROM users").
+	rows := sqlmock.NewRows([]string{
+		"id", "username", "password_hash", "token_version", "role", "failed_login_attempts", "locked_until",
+	}).AddRow("user-1", "zeynep", hash, 1, "user", 0, nil)
+	mock.ExpectQuery("SELECT id, username, password_hash, token_version, role").
 		WithArgs("zeynep@baum.edu.tr").
 		WillReturnRows(rows)
+	mock.ExpectExec("UPDATE users SET failed_login_attempts = 0").
+		WithArgs("user-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	r := setupAuthRouter(db)
 	w := doJSON(r, http.MethodPost, "/api/auth/login", map[string]string{

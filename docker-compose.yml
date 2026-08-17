@@ -47,6 +47,11 @@ services:
       TESSERACT_LANG: tur+eng
       MAX_UPLOAD_MB: 25
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3001}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - storage:/data/storage
     ports:

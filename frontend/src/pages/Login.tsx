@@ -40,7 +40,11 @@ export default function Login() {
       <div className="auth-card">
         <span className="auth-eyebrow">Mersin Üniversitesi</span>
         <h3 className="mb-3">Giriş Yap</h3>
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && (
+          <div className="alert alert-danger" role="alert" aria-live="assertive">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label htmlFor="login-email" className="form-label">
@@ -83,7 +87,10 @@ export default function Login() {
             Giriş Yap
           </button>
         </form>
-        <p className="mt-3 mb-0">
+        <p className="mt-2 mb-0" style={{ fontSize: '0.85rem' }}>
+          <Link to="/forgot-password">Şifremi unuttum</Link>
+        </p>
+        <p className="mt-2 mb-0">
           Hesabın yok mu? <Link to="/register">Kayıt ol</Link>
         </p>
       </div>

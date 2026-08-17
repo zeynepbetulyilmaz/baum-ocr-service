@@ -1,0 +1,15 @@
+$kind: http-request
+name: email
+description: ""
+url: http://localhost:8082/api/auth/login
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"email\": \"zeynepbetulyilmaz807@gmail.com\",\r
+
+    \  \"password\": \"zeynep123\"\r
+
+    }"
+order: 3090801218346191

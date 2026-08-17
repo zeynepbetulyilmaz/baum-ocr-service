@@ -4,3 +4,4 @@ frontend/dist/
 frontend/tsconfig.tsbuildinfo
 backend/server
 *.log
+.vs/

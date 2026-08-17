@@ -13,6 +13,11 @@ type Config struct {
 	TesseractLang  string
 	MaxUploadMB    int
 	FrontendOrigin string
+	SMTPHost       string
+	SMTPPort       string
+	SMTPUsername   string
+	SMTPPassword   string
+	SMTPFrom       string
 }
 
 func Load() Config {
@@ -24,6 +29,11 @@ func Load() Config {
 		TesseractLang:  getEnv("TESSERACT_LANG", "tur+eng"),
 		MaxUploadMB:    getEnvInt("MAX_UPLOAD_MB", 25),
 		FrontendOrigin: getEnv("FRONTEND_ORIGIN", "http://localhost:3001"),
+		SMTPHost:       getEnv("SMTP_HOST", ""),
+		SMTPPort:       getEnv("SMTP_PORT", "587"),
+		SMTPUsername:   getEnv("SMTP_USERNAME", ""),
+		SMTPPassword:   getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:       getEnv("SMTP_FROM", ""),
 	}
 }
 

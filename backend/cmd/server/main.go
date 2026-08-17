@@ -13,6 +13,7 @@ import (
 
 	"baum-ocr/backend/internal/config"
 	"baum-ocr/backend/internal/db"
+	"baum-ocr/backend/internal/mailer"
 	"baum-ocr/backend/internal/ocr"
 	"baum-ocr/backend/internal/router"
 )
@@ -42,6 +43,19 @@ func main() {
 		log.Printf("kuyruk onarımı sırasında hata: %v", err)
 	}
 
+	mailerConfig := mailer.Config{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUsername,
+		Password: cfg.SMTPPassword,
+		From:     cfg.SMTPFrom,
+	}
+	if mailerConfig.Configured() {
+		log.Println("SMTP yapılandırıldı, şifre sıfırlama e-postaları gerçekten gönderilecek")
+	} else {
+		log.Println("SMTP yapılandırılmamış, şifre sıfırlama bağlantıları sadece loglara yazılacak")
+	}
+
 	r := router.New(router.Options{
 		DB:             database,
 		JWTSecret:      cfg.JWTSecret,
@@ -50,6 +64,7 @@ func main() {
 		DefaultLang:    cfg.TesseractLang,
 		MaxUploadMB:    cfg.MaxUploadMB,
 		FrontendOrigin: cfg.FrontendOrigin,
+		Mailer:         mailerConfig,
 	})
 
 	srv := &http.Server{
